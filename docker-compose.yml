@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+  cassandra:
+    image: cassandra:4.1
+    container_name: cassandra
+    ports:
+      - "9042:9042"
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+
+  spark-jupyter:
+    image: jupyter/pyspark-notebook:latest
+    container_name: spark-jupyter
+    depends_on:
+      - kafka
+      - cassandra
+    ports:
+      - "8888:8888"           # Jupyter Notebook
+      - "4040:4040"           # Spark UI
+    volumes:
+      - ./notebooks:/home/jovyan/work/notebooks
+      - ./spark_jobs:/home/jovyan/work/spark_jobs
+      - ./data:/home/jovyan/work/data
+      - ./producer:/home/jovyan/work/producer
+    environment:
+      - SPARK_MASTER_HOST=spark-jupyter
+      - PYSPARK_PYTHON=python3
+      - PYSPARK_DRIVER_PYTHON=python3
+    command: start-notebook.sh --NotebookApp.token=''
+
+volumes:
+  cassandra_data:

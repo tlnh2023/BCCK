@@ -1,0 +1,16 @@
+# Dữ liệu lớn - không push lên GitHub
+data/
+*.csv
+*.parquet
+*.zip
+*.gz
+
+# Thư mục cache, log
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+spark-warehouse/
+metastore_db/
+
+# Logs
+*.log
