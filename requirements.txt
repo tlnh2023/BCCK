@@ -1,0 +1,5 @@
+kafka-python==2.0.2 
+cassandra-driver==3.29.1 
+plotly==5.18.0 
+pandas==2.1.4 
+pyarrow==14.0.2 

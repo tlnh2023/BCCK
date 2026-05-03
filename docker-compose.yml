@@ -1,19 +1,37 @@
 version: '3.8'
 
+networks:
+  bigdata-net:
+    driver: bridge
+
 services:
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
+    networks:
+      - bigdata-net
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
     ports:
       - "2181:2181"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: kafka
+    networks:
+      - bigdata-net
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     ports:
       - "9092:9092"
       - "29092:29092"
@@ -22,37 +40,81 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    networks:
+      - bigdata-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    restart: unless-stopped
 
   cassandra:
     image: cassandra:4.1
     container_name: cassandra
+    networks:
+      - bigdata-net
     ports:
       - "9042:9042"
+    environment:
+      CASSANDRA_CLUSTER_NAME: "ecommerce_cluster"
+      CASSANDRA_DC: "datacenter1"
+      CASSANDRA_ENDPOINT_SNITCH: "GossipingPropertyFileSnitch"
+      MAX_HEAP_SIZE: "512M"
+      HEAP_NEWSIZE: "128M"
     volumes:
       - cassandra_data:/var/lib/cassandra
+      - ./cassandra/init.cql:/docker-entrypoint-initdb.d/init.cql
+    healthcheck:
+      test: ["CMD", "cqlsh", "-e", "describe keyspaces"]
+      interval: 30s
+      timeout: 15s
+      retries: 8
+      start_period: 60s
+    restart: unless-stopped
 
   spark-jupyter:
-    image: jupyter/pyspark-notebook:latest
+    image: jupyter/pyspark-notebook:spark-3.4.0
     container_name: spark-jupyter
-    depends_on:
-      - kafka
-      - cassandra
+    networks:
+      - bigdata-net
     ports:
-      - "8888:8888"           # Jupyter Notebook
-      - "4040:4040"           # Spark UI
+      - "8888:8888"
     volumes:
       - ./notebooks:/home/jovyan/work/notebooks
       - ./spark_jobs:/home/jovyan/work/spark_jobs
       - ./data:/home/jovyan/work/data
       - ./producer:/home/jovyan/work/producer
+      - ./requirements.txt:/home/jovyan/work/requirements.txt
     environment:
       - SPARK_MASTER_HOST=spark-jupyter
       - PYSPARK_PYTHON=python3
       - PYSPARK_DRIVER_PYTHON=python3
-    command: start-notebook.sh --NotebookApp.token=''
+      - JUPYTER_ENABLE_LAB=yes
+    command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
+    restart: unless-stopped
 
 volumes:
   cassandra_data:
+    driver: local
