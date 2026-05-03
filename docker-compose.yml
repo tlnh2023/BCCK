@@ -18,11 +18,13 @@ services:
     ports:
       - "2181:2181"
     healthcheck:
-      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep imok"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+      test: ["CMD", "bash", "-c", "cub zk-ready localhost:2181 30 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 15s
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
+
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
@@ -31,7 +33,7 @@ services:
       - bigdata-net
     depends_on:
       zookeeper:
-        condition: service_healthy
+        condition: service_healthy   # ← FIX: chờ zookeeper healthy trước
     ports:
       - "9092:9092"
       - "29092:29092"
@@ -52,6 +54,7 @@ services:
       interval: 20s
       timeout: 10s
       retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   kafka-ui:
