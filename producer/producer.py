@@ -22,6 +22,6 @@ if __name__ == "__main__":
     print("--- Đang bắt đầu tạo dữ liệu giả lập (Streaming) ---")
     while True:
         data = generate_transaction()
-        # In ra màn hình để Linh kiểm tra dữ liệu có chạy không
+        # In ra màn hình để kiểm tra dữ liệu có chạy không
         print(f"Đã tạo giao dịch: {data}")
         time.sleep(1) # Tạo 1 giao dịch mỗi giây

@@ -1,52 +1,40 @@
+import os
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
-from pyspark.sql.types import StringType, DoubleType, IntegerType
+from pyspark.sql.functions import col, current_timestamp, round
 
-# 1. Khởi tạo Spark Session - Kết nối thẳng tới container 'cassandra'
+# 1. Khoi tao Spark Session cho he thong xu ly luong
 spark = SparkSession.builder \
-    .appName("CustomerBehaviorStreaming") \
-    .config("spark.cassandra.connection.host", "cassandra") \
-    .config("spark.sql.extensions", "com.datastax.spark.connector.CassandraSparkExtensions") \
+    .appName("Realtime_Revenue_Monitoring_System") \
     .getOrCreate()
 
-# 2. Đọc luồng dữ liệu giả lập (1 dòng/giây) để tạo data test
-df = spark.readStream \
+# 2. Thiet lap nguon du lieu gia lap (Data Source)
+raw_stream_df = spark.readStream \
     .format("rate") \
     .option("rowsPerSecond", 1) \
     .load()
 
-# 3. Tiền xử lý dữ liệu thô
-processed_df = df.select(
-    col("timestamp").cast("string"),
-    col("value").cast("string").alias("transaction_id"), 
-    col("value").cast("string").alias("brand"),          
-    col("value").cast("double").alias("amount"),
-    col("value").cast("int").alias("customer_id"),
-    col("value").cast("string").alias("category")
+# 3. Tien xu ly va chuan hoa du lieu (Data Transformation)
+processed_sales_df = raw_stream_df.select(
+    current_timestamp().alias("timestamp"), 
+    col("value").cast("string").alias("transaction_id"),
+    round((col("value") % 100) * 1.5, 2).alias("revenue") 
 )
 
-# 4. Ghi vào bảng 'transactions' (Lưu trữ dữ liệu thô - Mục 4.3)
-query_raw = processed_df.writeStream \
-    .format("org.apache.spark.sql.cassandra") \
-    .options(table="transactions", keyspace="project_ks") \
-    .option("checkpointLocation", "/home/jovyan/work/checkpoints/raw_data") \
+# 4. CAU HINH DUONG DAN DAU RA (DA SUA CHO DOCKER)
+# /home/jovyan/work tuong ung voi thu muc BCCK trong container, du lieu se duoc ghi vao thu muc data/realtime_output tren host
+output_path = "/home/jovyan/work/data/realtime_output"
+checkpoint_path = "/home/jovyan/work/checkpoints/streaming_v1"
+
+# 5. Kich hoat luong ghi du lieu (Streaming Query)
+streaming_query = processed_sales_df.writeStream \
+    .format("csv") \
+    .option("path", output_path) \
+    .option("checkpointLocation", checkpoint_path) \
+    .option("header", "true") \
     .outputMode("append") \
     .start()
 
-# 5. CHỈ chọn các cột cần thiết cho bảng 'brand_stats' (Dùng cho Dashboard)
-brand_stats_df = processed_df.select(
-    col("brand"),
-    col("amount").alias("total_revenue"),
-    col("customer_id").alias("transaction_count") 
-)
+print(f"--- [He thong dang chay] Du lieu dang duoc day ra folder: data/realtime_output ---")
 
-# 6. Ghi vào bảng 'brand_stats'
-query_agg = brand_stats_df.writeStream \
-    .format("org.apache.spark.sql.cassandra") \
-    .options(table="brand_stats", keyspace="project_ks") \
-    .option("checkpointLocation", "/home/jovyan/work/checkpoints/agg_data") \
-    .outputMode("append") \
-    .start()
-
-print(">>> Hệ thống đang đẩy dữ liệu vào Cassandra. Mở cqlsh kiểm tra ngay!")
-spark.streams.awaitAnyTermination()
+# Duy tri luong xu ly
+streaming_query.awaitTermination()
