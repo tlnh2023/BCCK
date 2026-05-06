@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-commerce Realtime Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛒 E-commerce Realtime Dashboard</h1>
+            <div class="live-badge">LIVE</div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-info">
+                    <h3>Total Revenue</h3>
+                    <div class="stat-value" id="totalRevenue">$0</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📦</div>
+                <div class="stat-info">
+                    <h3>Total Orders</h3>
+                    <div class="stat-value" id="totalOrders">0</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⭐</div>
+                <div class="stat-info">
+                    <h3>Avg Order Value</h3>
+                    <div class="stat-value" id="avgOrderValue">$0</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-info">
+                    <h3>Active Users</h3>
+                    <div class="stat-value" id="activeUsers">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-row">
+            <div class="chart-container">
+                <canvas id="categoryChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <div class="charts-row">
+            <div class="chart-container">
+                <canvas id="productsChart"></canvas>
+            </div>
+            <div class="orders-container">
+                <h3>Recent Orders</h3>
+                <div id="recentOrders" class="orders-list"></div>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <button id="generateDataBtn" class="btn-primary">Generate Sample Data</button>
+            <div id="notification" class="notification"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
